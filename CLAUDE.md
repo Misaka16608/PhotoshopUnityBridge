@@ -15,7 +15,17 @@ dotnet run --project src/PhotoshopUnityBridge
 PS_BRIDGE_PORT=9877 dotnet run --project src/PhotoshopUnityBridge
 ```
 
-There are no tests in this repository.
+## Tests
+
+```bash
+# Run all tests
+dotnet test
+
+# Run a specific test class
+dotnet test --filter "FullyQualifiedName~JsHelpersTests"
+```
+
+Tests live in `tests/PhotoshopUnityBridge.Tests/`, using **xUnit** + coverlet. They cover `JsHelpers` (string escaping, field filtering) — the logic that can be tested without a live Photoshop instance. `PhotoshopBridge` and `PhotoshopService` require Photoshop COM and are not unit-testable.
 
 ## Architecture
 
