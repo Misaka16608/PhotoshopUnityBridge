@@ -1,0 +1,40 @@
+# ============================================
+# .NET / ASP.NET Core
+# ============================================
+
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+*.dbmdl
+*.sln.docstates
+*.userosscache
+*.userprefs
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# ============================================
+# OS files
+# ============================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# Environment
+# ============================================
+*.env
+.env.*
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json

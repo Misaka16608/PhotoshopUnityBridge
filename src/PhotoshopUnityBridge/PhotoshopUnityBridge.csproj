@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>CA1416;CS8602</NoWarn>
+    <AssemblyName>photoshop-unity-bridge</AssemblyName>
+    <Description>HTTP REST bridge for Adobe Photoshop COM control, designed for Unity Editor integration</Description>
+    <Version>1.0.0</Version>
+    <Authors>Misaka16608</Authors>
+  </PropertyGroup>
+
+</Project>
