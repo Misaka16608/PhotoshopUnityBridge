@@ -70,6 +70,12 @@ ps.MapPost("/layers/export-batch",
     async (PhotoshopService.BatchExportRequest req, PhotoshopService svc) =>
         await svc.ExportLayersBatch(req));
 
+// GET /ps/layers/{index}/bezier-data
+// Extracts VectorMask bezier path data from a shape layer.
+ps.MapGet("/layers/{index:int}/bezier-data",
+    async (int index, PhotoshopService svc) =>
+        await svc.GetBezierPathData(index));
+
 // ==================================================================
 // Startup
 // ==================================================================
@@ -85,6 +91,7 @@ Console.Error.WriteLine($"  GET  /ps/document");
 Console.Error.WriteLine($"  GET  /ps/layers?fields=...");
 Console.Error.WriteLine($"  POST /ps/layers/{{index}}/export");
 Console.Error.WriteLine($"  POST /ps/layers/export-batch");
+Console.Error.WriteLine($"  GET  /ps/layers/{{index}}/bezier-data");
 
 try
 {

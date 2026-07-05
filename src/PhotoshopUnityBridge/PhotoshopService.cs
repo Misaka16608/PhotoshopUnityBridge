@@ -448,6 +448,155 @@ public class PhotoshopService
     }
 
     // ==================================================================
+    // Bezier Path Data (VectorMask)
+    // ==================================================================
+
+    public async Task<IResult> GetBezierPathData(int layerIndex)
+    {
+        var script = JsHelpers.JsonPolyfill + @"
+(function() {
+    var doc = app.activeDocument;
+    if (!doc) return 'ERR|No active document';
+
+    // Find layer by index
+    function findByIndex(container, targetIdx, counter) {
+        if (counter === undefined) counter = {v:0};
+        var allLayers = container.layers;
+        for (var i = allLayers.length - 1; i >= 0; i--) {
+            var item = allLayers[i];
+            if (counter.v === targetIdx) return item;
+            counter.v++;
+            if (item.typename === 'LayerSet') {
+                var f = findByIndex(item, targetIdx, counter);
+                if (f) return f;
+            }
+        }
+        return null;
+    }
+    var layer = findByIndex(doc, " + layerIndex + @");
+    if (!layer) return 'ERR|Layer not found at index " + layerIndex + @"';
+
+    // Coordinate helper — getUnitDoubleValue returns UnitValue (with .value)
+    // in some PS versions and a plain number in others.
+    function readCoord(desc, key) {
+        var v = desc.getUnitDoubleValue(key);
+        if (typeof v === 'number') return v;
+        return v.value;
+    }
+
+    // Read a point descriptor {horizontal, vertical}
+    function readPoint(desc, key) {
+        var ptDesc = desc.getObjectValue(key);
+        return {
+            x: readCoord(ptDesc, stringIDToTypeID('horizontal')),
+            y: readCoord(ptDesc, stringIDToTypeID('vertical'))
+        };
+    }
+
+    // ---- traverse Action Manager: layer → vectorMask → pathContents ----
+
+    var ref = new ActionReference();
+    ref.putIdentifier(stringIDToTypeID('layer'), layer.id);
+    var layerDesc = executeActionGet(ref);
+
+    // ---- resolve vectorMask key (PS versions use different key formats) ----
+
+    var vmskKey = null;
+    if (layerDesc.hasKey(stringIDToTypeID('vectorMask'))) {
+        vmskKey = stringIDToTypeID('vectorMask');
+    }
+    if (!vmskKey && layerDesc.hasKey(charIDToTypeID('Vmsk'))) {
+        vmskKey = charIDToTypeID('Vmsk');
+    }
+    if (!vmskKey) {
+        for (var ki = 0; ki < layerDesc.count; ki++) {
+            var k = layerDesc.getKey(ki);
+            try {
+                var kn = typeIDToStringID(k).toLowerCase();
+                if (kn.indexOf('vectormask') !== -1 || kn.indexOf('vmsk') !== -1) {
+                    vmskKey = k;
+                    break;
+                }
+            } catch(e) {}
+        }
+    }
+    if (!vmskKey) {
+        return 'ERR|Layer has no vector mask. This endpoint only works on shape layers.';
+    }
+
+    var vectorMask = layerDesc.getObjectValue(vmskKey);
+    var pathContents = vectorMask.getObjectValue(stringIDToTypeID('pathContents'));
+    var subpathList = pathContents.getList(stringIDToTypeID('subpathList'));
+
+    // ---- iterate subpaths ----
+
+    var subpaths = [];
+    for (var i = 0; i < subpathList.count; i++) {
+        var subpathDesc = subpathList.getObjectValue(i);
+        var subpath = {};
+        subpath.closed = subpathDesc.getBoolean(stringIDToTypeID('closedSubpath'));
+
+        var pointList = subpathDesc.getList(stringIDToTypeID('pathPoints'));
+        var points = [];
+        for (var j = 0; j < pointList.count; j++) {
+            var pt = pointList.getObjectValue(j);
+            var point = {};
+
+            point.anchor   = readPoint(pt, stringIDToTypeID('anchor'));
+            point.forward  = readPoint(pt, stringIDToTypeID('forward'));
+            point.backward = readPoint(pt, stringIDToTypeID('backward'));
+            point.smooth   = pt.getBoolean(stringIDToTypeID('smooth'));
+
+            points.push(point);
+        }
+        subpath.points = points;
+        subpaths.push(subpath);
+    }
+
+    // ---- build result ----
+
+    var b = layer.bounds;
+    var result = {
+        layerName: layer.name,
+        layerBounds: {
+            left: b[0].value,
+            top: b[1].value,
+            right: b[2].value,
+            bottom: b[3].value
+        },
+        subpaths: subpaths
+    };
+
+    return 'OK|' + _json(result);
+})();
+";
+
+        try
+        {
+            var raw = await _ps.ExecuteJavaScriptAsync(script);
+            if (raw.StartsWith("ERR|"))
+                return Results.Json(new { error = raw[4..] }, statusCode: 400);
+
+            if (raw.StartsWith("OK|"))
+            {
+                var json = raw[3..];
+                var obj = JsonSerializer.Deserialize<object>(json);
+                return Results.Ok(obj);
+            }
+
+            return Results.Json(new { error = $"Unexpected result: {raw}" }, statusCode: 500);
+        }
+        catch (TimeoutException)
+        {
+            return Results.Json(new { error = "Timeout" }, statusCode: 504);
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new { error = ex.Message }, statusCode: 500);
+        }
+    }
+
+    // ==================================================================
     // ExtendScript builders
     // ==================================================================
 
