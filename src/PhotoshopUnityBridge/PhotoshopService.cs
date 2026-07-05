@@ -237,38 +237,44 @@ public class PhotoshopService
     function collectAll(container, startIdx, parentId) {
         var result = [];
         var idx = startIdx || 0;
-        for (var i = 0; i < container.artLayers.length; i++) {
-            result.push(collectLayer(container.artLayers[i], idx, parentId));
-            idx++;
-        }
-        for (var j = 0; j < container.layerSets.length; j++) {
-            var ls = container.layerSets[j];
-            var group = {
-                index: idx,
-                id: ls.id,
-                name: ls.name,
-                visible: ls.visible,
-                type: 'group',
-                kind: 'LayerSet',
-            };
-            if (parentId !== undefined && parentId !== null)
-                group.parentId = parentId;
-            else
-                group.parentId = null;
-            try { group.opacity = ls.opacity; } catch(e) { group.opacity = 100; }
-            try { group.blendMode = ls.blendMode.toString(); } catch(e) { group.blendMode = ''; }
-            try {
-                var b = ls.bounds;
-                group.bounds = { left: b[0].value, top: b[1].value, right: b[2].value, bottom: b[3].value };
-                group.width = b[2].value - b[0].value;
-                group.height = b[3].value - b[1].value;
-            } catch(e) { group.bounds = null; group.width = 0; group.height = 0; }
-            idx++;
-            var children = collectAll(ls, idx, ls.id);
-            group.children = children.layers;
-            group.childrenCount = children.layers.length;
-            result.push(group);
-            idx = children.nextIdx;
+        // container.layers gives BOTH artLayers and layerSets in
+        // Photoshop panel z-order (index 0 = bottommost).
+        // Iterate in reverse so result is top-to-bottom (panel order).
+        var allLayers = container.layers;
+        for (var i = allLayers.length - 1; i >= 0; i--) {
+            var item = allLayers[i];
+            if (item.typename === 'LayerSet') {
+                var ls = item;
+                var group = {
+                    index: idx,
+                    id: ls.id,
+                    name: ls.name,
+                    visible: ls.visible,
+                    type: 'group',
+                    kind: 'LayerSet',
+                };
+                if (parentId !== undefined && parentId !== null)
+                    group.parentId = parentId;
+                else
+                    group.parentId = null;
+                try { group.opacity = ls.opacity; } catch(e) { group.opacity = 100; }
+                try { group.blendMode = ls.blendMode.toString(); } catch(e) { group.blendMode = ''; }
+                try {
+                    var b = ls.bounds;
+                    group.bounds = { left: b[0].value, top: b[1].value, right: b[2].value, bottom: b[3].value };
+                    group.width = b[2].value - b[0].value;
+                    group.height = b[3].value - b[1].value;
+                } catch(e) { group.bounds = null; group.width = 0; group.height = 0; }
+                idx++;
+                var children = collectAll(ls, idx, ls.id);
+                group.children = children.layers;
+                group.childrenCount = children.layers.length;
+                result.push(group);
+                idx = children.nextIdx;
+            } else {
+                result.push(collectLayer(item, idx, parentId));
+                idx++;
+            }
         }
         return { layers: result, nextIdx: idx };
     }
@@ -462,8 +468,16 @@ public class PhotoshopService
 
         function findByIndex(container, targetIdx, counter) {{
             if (counter === undefined) counter = {{v:0}};
-            for (var i=0;i<container.artLayers.length;i++) {{ if(counter.v===targetIdx) return container.artLayers[i]; counter.v++; }}
-            for (var j=0;j<container.layerSets.length;j++) {{ if(counter.v===targetIdx) return container.layerSets[j]; counter.v++; var f=findByIndex(container.layerSets[j],targetIdx,counter); if(f) return f; }}
+            var allLayers = container.layers;
+            for (var i = allLayers.length - 1; i >= 0; i--) {{
+                var item = allLayers[i];
+                if (counter.v === targetIdx) return item;
+                counter.v++;
+                if (item.typename === 'LayerSet') {{
+                    var f = findByIndex(item, targetIdx, counter);
+                    if (f) return f;
+                }}
+            }}
             return null;
         }}
         var targetLayer = findByIndex(origDoc, {layerIndex});
