@@ -1,6 +1,6 @@
-# CLAUDE.md
+# opencode.md
 
-本文件为 Claude Code 在此仓库中工作时提供指导。
+> 本文档为 opencode 专属版本，与 `CLAUDE.md` 内容保持一致，修改时需同步更新。
 
 ## 项目概述
 
